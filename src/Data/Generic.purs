@@ -12,6 +12,7 @@ module Data.Generic
   , gShow
   , gEq
   , gCompare
+  , anyProxy
   ) where
 
 import Prelude
@@ -24,6 +25,10 @@ import Data.String (joinWith)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Type.Proxy (Proxy(..))
+
+-- Work around compiler/library bug https://github.com/purescript/purescript-generics/issues/44
+anyProxy :: Unit
+anyProxy = unit
 
 -- | The Generic typeclass provides methods for sending data to/from spine
 -- | representations, as well as querying about the signatures of spine

@@ -59,10 +59,9 @@ main :: Eff (console :: CONSOLE, assert :: ASSERT) Unit
 main = do
   logShow $ toFrom [
     Foo 12.0 "Hello"
-  , Quux ["Hi","Dere"]
-  , Baz {a : Just "yo", bq : 22.0} "oy"
-  , Corge ['H', 'i', ' ', 'D', 'e', 'r', 'e'] ]
-  logShow $ gCompare (Bar 12.3) (Foo 34.1 "hello")
+    , Quux ["Hi","Dere"]
+    , Baz {a : Just "yo", bq : 22.0} "oy"
+    , Corge ['H', 'i', ' ', 'D', 'e', 'r', 'e'] ]
   logShow $ gEq
     [ Foo 12.0 "Hello"
     , Quux ["Hi","Dere"]
