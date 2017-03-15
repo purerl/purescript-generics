@@ -30,6 +30,10 @@ data UnitPlus = UnitPlus Unit Unit
 
 derive instance genericUnitPlus :: Generic UnitPlus
 
+data VoidPlus = VoidPlus Void Void
+
+derive instance genericVoidPlus :: Generic VoidPlus
+
 instance showFoo :: Show Foo where
   show = gShow
 
@@ -58,6 +62,11 @@ derive instance genericBar :: Generic Bar
 main :: Eff (console :: CONSOLE, assert :: ASSERT) Unit
 main = do
   logShow $ toFrom [
+    Foo 12.0 "Hello"
+  , Quux ["Hi","Dere"]
+  , Baz {a : Just "yo", bq : 22.0} "oy"
+  , Corge ['H', 'i', ' ', 'D', 'e', 'r', 'e'] ]
+  logShow $ toSpine [
     Foo 12.0 "Hello"
     , Quux ["Hi","Dere"]
     , Baz {a : Just "yo", bq : 22.0} "oy"

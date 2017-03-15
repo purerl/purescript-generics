@@ -1,5 +1,5 @@
 {
-    "name": "purescript-strings",
+    "name": "generics",
     "set": "erl-0.10.5",
     "source": "https://github.com/purerl/package-sets.git",
     "depends": [

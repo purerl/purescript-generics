@@ -20,10 +20,13 @@ import Prelude
 import Data.Array (null, length, sortBy, zipWith)
 import Data.Either (Either(..))
 import Data.Foldable (all, and, find, fold, intercalate)
+import Data.Identity (Identity(..))
 import Data.Maybe (Maybe(..))
+import Data.NonEmpty (NonEmpty(..))
 import Data.String (joinWith)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
+
 import Type.Proxy (Proxy(..))
 
 -- Work around compiler/library bug https://github.com/purescript/purescript-generics/issues/44
@@ -85,6 +88,11 @@ instance genericUnit :: Generic Unit where
   toSpine _ = SUnit
   toSignature _ = SigUnit
   fromSpine SUnit = Just unit
+  fromSpine _ = Nothing
+
+instance genericVoid :: Generic Void where
+  toSpine = absurd
+  toSignature _ = SigProd "Data.Void.Void" []
   fromSpine _ = Nothing
 
 instance genericTuple :: (Generic a, Generic b) => Generic (Tuple a b) where
@@ -151,6 +159,21 @@ instance genericEither :: (Generic a, Generic b) => Generic (Either a b) where
   fromSpine (SProd "Data.Either.Right" [x]) = Right <$> fromSpine (force x)
   fromSpine _ = Nothing
 
+instance genericIdentity :: (Generic a) => Generic (Identity a) where
+  toSpine (Identity a) = SProd "Data.Identity.Identity" [\_ -> toSpine a]
+  toSignature x =
+    SigProd
+      "Data.Identity.Identity"
+      [ { sigConstructor: "Data.Identity.Identity"
+        , sigValues: [\_ -> toSignature (iproxy x)]
+        }
+      ]
+    where
+    iproxy :: Proxy (Identity a) -> Proxy a
+    iproxy _ = Proxy
+  fromSpine (SProd "Data.Identity.Identity" [x]) = Identity <$> fromSpine (force x)
+  fromSpine _ = Nothing
+
 instance genericOrdering :: Generic Ordering where
   toSpine = case _ of
     LT -> SProd "Data.Ordering.LT" []
@@ -169,6 +192,28 @@ instance genericOrdering :: Generic Ordering where
     SProd "Data.Ordering.GT" [] -> Just GT
     _ -> Nothing
 
+instance genericNonEmpty :: (Generic (f a), Generic a) => Generic (NonEmpty f a) where
+  toSpine (NonEmpty x xs) =
+    SProd "Data.NonEmpty.NonEmpty" [\_ -> toSpine x, \_ -> toSpine xs]
+  toSignature x =
+    SigProd
+      "Data.NonEmpty.NonEmpty"
+      [ { sigConstructor: "Data.NonEmpty.NonEmpty"
+        , sigValues:
+            [ \_ -> toSignature (headProxy x)
+            , \_ -> toSignature (tailProxy x)
+            ]
+        }
+      ]
+    where
+    headProxy :: Proxy (NonEmpty f a) -> Proxy a
+    headProxy _ = Proxy
+    tailProxy :: Proxy (NonEmpty f a) -> Proxy (f a)
+    tailProxy _ = Proxy
+  fromSpine (SProd "Data.NonEmpty.NonEmpty" [x, xs]) =
+    NonEmpty <$> fromSpine (force x) <*> fromSpine (force xs)
+  fromSpine _ = Nothing
+
 -- | A GenericSpine is a universal representation of an arbitrary data
 -- | structure (that does not contain function arrows).
 data GenericSpine
@@ -181,6 +226,26 @@ data GenericSpine
   | SChar Char
   | SArray (Array (Unit -> GenericSpine))
   | SUnit
+
+instance showGenericSpine :: Show GenericSpine
+    where
+        show  SUnit            = "SUnit"
+        show (SChar         c) = "SChar "    <> show  c
+        show (SString       s) = "SString "  <> show  s
+        show (SBoolean      b) = "SBoolean " <> show  b
+        show (SNumber       n) = "SNumber "  <> show  n
+        show (SInt          i) = "SInt "     <> show  i
+        show (SArray      arr) = "SArray "   <> showArray showSuspended arr
+        show (SProd   lbl arr) = "SProd "    <> show  lbl <> " "
+                                             <> showArray showSuspended arr
+        show (SRecord     arr) = "SRecord "  <> showArray showElt       arr
+            where
+                showElt { recLabel: label, recValue: value } =
+                    fold ["{ recLabel: ", show label, ", recValue: ", showSuspended value, " }"]
+
+-- | Shows a lazily evaluated value under a function with `Unit` parameter.
+showSuspended  :: forall a. Show a => (Unit -> a) -> String
+showSuspended e = "\\_ -> " <> show (e unit)
 
 instance eqGenericSpine :: Eq GenericSpine where
   eq (SProd s1 arr1) (SProd s2 arr2) =
@@ -274,7 +339,7 @@ showDataConstructor :: DataConstructor -> String
 showDataConstructor dc =
   "{ sigConstructor: " <> show dc.sigConstructor <>
   ", sigValues: " <> showArray (showSignature <<< force) dc.sigValues <>
-  "}"
+  " }"
 
 showSignature :: GenericSignature -> String
 showSignature sig =
@@ -309,6 +374,7 @@ showSignature sig =
 -- We use this instead of the default Show Array instance to avoid escaping
 -- strings twice.
 showArray :: forall a. (a -> String) -> Array a -> String
+showArray _ [] = "[]"
 showArray f xs = "[ " <> intercalate ", " (map f xs) <> " ]"
 
 showLabel
@@ -433,3 +499,4 @@ orderingToInt = case _ of
   EQ -> 0
   LT -> 1
   GT -> -1
+
